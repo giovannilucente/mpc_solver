@@ -2,7 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <chrono> 
-#include "dynamic_game_planner.h"
+#include "trust_region_mpc_solver.h"
 
 void save_lanes_to_csv(const std::vector<VehicleState>& traffic, const std::string& filename) {
     std::ofstream file(filename);
@@ -95,7 +95,7 @@ int main() {
     }
 
     // Run the planner
-    DynamicGamePlanner planner;
+    TrustRegionMPCSolver planner;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
