@@ -5,7 +5,7 @@ include_directories(include)
 
 set(source_files
     src/main.cpp
-    src/dynamic_game_planner.cpp
+    src/trust_region_mpc_solver.cpp
     src/utils.cpp
     src/vehicle_state.cpp
 )
