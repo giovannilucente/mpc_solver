@@ -1,2 +1,2 @@
 # mpc_solver
-This repository contains a Model Predictive Control (MPC) solver based on ACADO, that uses learned dynamic models
+This repository contains a Model Predictive Control (MPC) solver based on a Trust Region solver, that uses learned dynamic models
