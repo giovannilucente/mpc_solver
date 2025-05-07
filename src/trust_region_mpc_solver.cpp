@@ -1,7 +1,7 @@
 #include "trust_region_mpc_solver.h"
 #include <iostream>
 
-TrustRegionMPCSolver::TrustRegionMPCSolver() 
+TrustRegionMPCSolver::TrustRegionMPCSolver(VehicleState& vs) : vehicle_state(vs) 
 {
 }
 
@@ -10,10 +10,7 @@ TrustRegionMPCSolver::~TrustRegionMPCSolver() {
     std::cout << "TrustRegionMPCSolver destroyed." << std::endl;
 }
 
-void TrustRegionMPCSolver::run(VehicleState& vehicle_state_) {
-    
-    vehicle_state = vehicle_state_;
-
+void TrustRegionMPCSolver::run() {
     // Variables initialization and setup:
     setup();
 
@@ -28,7 +25,7 @@ void TrustRegionMPCSolver::run(VehicleState& vehicle_state_) {
     print_trajectories(X, U);
     compute_constraints(constraints, X, U);
     constraints_diagnostic(constraints, false);
-    vehicle_state = set_prediction(X, U);
+    set_prediction(X, U);
 }
 
 void TrustRegionMPCSolver::setup() {
@@ -37,6 +34,7 @@ void TrustRegionMPCSolver::setup() {
     // 2 * nU * (N + 1) inequality constraints for inputs 
     // (N + 1) constraints to remain in the lane
     nC = 2 * nU * (N + 1) + (N + 1);
+    nG = nu;
 
     // resize and initialize limits for control input
     ul.resize(nU * (N + 1), 1);
@@ -47,9 +45,6 @@ void TrustRegionMPCSolver::setup() {
         ul(nU * j + F, 0) = F_low;
         uu(nU * j + F, 0) = F_up;
     }
-
-    // resize time vector
-    time.resize(N + 1, 1);
 
     // resize and initialize lagrangian multiplier vector
     lagrangian_multipliers.resize(nC, 1);
@@ -291,7 +286,6 @@ double TrustRegionMPCSolver::compute_cost_function(const double* X_, const doubl
 /** computes of the augmented lagrangian vector  L = <L_1, ..., L_M> L_i = cost_i + lagrangian_multipliers * constraints */
 double TrustRegionMPCSolver::compute_lagrangian(const double* X_, const double* U_)
 {
-    double lagrangian;
     double cost;
     double constraints[nC];
     
@@ -360,7 +354,7 @@ void TrustRegionMPCSolver::compute_gradient(double* gradient, const double* U_)
 /** it solves the quadratic problem (GT * s + 0.5 * sT * H * s) with solution included in the trust region ||s|| < Delta */
 void TrustRegionMPCSolver::quadratic_problem_solver(Eigen::MatrixXd & s_, const Eigen::MatrixXd & G_, const Eigen::MatrixXd & H_, double Delta)
 {
-    Eigen::MatrixXd ps(nu,1);
+    Eigen::MatrixXd ps(nG,1);
     double tau;
     double tau_c;
     double normG;
@@ -416,39 +410,41 @@ void TrustRegionMPCSolver::constraints_diagnostic(const double* constraints, boo
 
 void TrustRegionMPCSolver::print_trajectories(const double* X, const double* U)
 {
-    // Define column width
-    const int col_width = 12;  // Adjust this value as needed
-    
-    // Print table header with aligned columns
-    std::cerr << std::left  // Align text to the left
-                << std::setw(col_width) << "X"
-                << std::setw(col_width) << "Y"
-                << std::setw(col_width) << "V"
-                << std::setw(col_width) << "PSI"
-                << std::setw(col_width) << "S"
-                << std::setw(col_width) << "L"
-                << std::setw(col_width) << "F"
-                << std::setw(col_width) << "d"
-                << "\n";
+    const int col_width = 12;  // Adjust as needed
 
-    // Print separator line
-    std::cerr << std::string(col_width * 8, '-') << "\n";
+    // Print header
+    std::cerr << std::left
+              << std::setw(col_width) << "Time"
+              << std::setw(col_width) << "X"
+              << std::setw(col_width) << "Y"
+              << std::setw(col_width) << "V"
+              << std::setw(col_width) << "PSI"
+              << std::setw(col_width) << "S"
+              << std::setw(col_width) << "L"
+              << std::setw(col_width) << "F"
+              << std::setw(col_width) << "d"
+              << "\n";
 
-    // Print trajectory values
-    for (int j = 0; j < N + 1; j++){
+    // Print separator
+    std::cerr << std::string(col_width * 9, '-') << "\n";
+
+    // Print trajectory with time
+    for (int j = 0; j < N + 1; j++) {
+        double t = j * dt;
         std::cerr << std::fixed << std::left
-                    << std::setw(col_width) << X[nX * j + x]
-                    << std::setw(col_width) << X[nX * j + y]
-                    << std::setw(col_width) << X[nX * j + v]
-                    << std::setw(col_width) << X[nX * j + psi]
-                    << std::setw(col_width) << X[nX * j + s]
-                    << std::setw(col_width) << X[nX * j + l]
-                    << std::setw(col_width) << U[nU * j + F]
-                    << std::setw(col_width) << U[nU * j + d]
-                    << "\n";
+                  << std::setw(col_width) << t
+                  << std::setw(col_width) << X[nX * j + x]
+                  << std::setw(col_width) << X[nX * j + y]
+                  << std::setw(col_width) << X[nX * j + v]
+                  << std::setw(col_width) << X[nX * j + psi]
+                  << std::setw(col_width) << X[nX * j + s]
+                  << std::setw(col_width) << X[nX * j + l]
+                  << std::setw(col_width) << U[nU * j + F]
+                  << std::setw(col_width) << U[nU * j + d]
+                  << "\n";
     }
+
     std::cerr << "\n";
-    
 }
 
 /** computes the acceleration on the spline s(t) at time t*/
@@ -458,9 +454,7 @@ double TrustRegionMPCSolver::compute_acceleration(const tk::spline & spline_v, d
 }
 
 /** sets the prediction to the traffic structure*/
-VehicleState TrustRegionMPCSolver::set_prediction(const double* X_, const double* U_)
-{
-    VehicleState vehicle_state_ = vehicle_state;
+void TrustRegionMPCSolver::set_prediction(const double* X_, const double* U_) {
     Trajectory trajectory;
     Control control;
     tk::spline spline_x;
@@ -473,26 +467,29 @@ VehicleState TrustRegionMPCSolver::set_prediction(const double* X_, const double
     std::vector<double> d_;
     std::vector<double> t_;
     double time = 0.0;
+
     x_.push_back(vehicle_state.x);
     y_.push_back(vehicle_state.y);
     v_.push_back(vehicle_state.v);
     d_.push_back(0.5 * vehicle_state.beta);
     t_.push_back(time);
-    for (int j = 0; j < N + 1; j++){
-        time = time + dt;
+
+    for (int j = 0; j < N + 1; j++) {
+        time += dt;
         x_.push_back(X_[nX * j + x]);
         y_.push_back(X_[nX * j + y]);
         v_.push_back(X_[nX * j + v]);
         d_.push_back(U_[nU * j + d]);
         t_.push_back(time);
     }
+
     spline_x = tk::spline(t_, x_);
     spline_y = tk::spline(t_, y_);
     spline_v = tk::spline(t_, v_);
     spline_d = tk::spline(t_, d_);
     time = 0.0;
 
-    for (int j = 0; j < N_interpolation; j++){
+    for (int j = 0; j < N_interpolation; j++) {
         TrajectoryPoint point;
         Input input;
         input.a = compute_acceleration(spline_v, time);
@@ -510,10 +507,10 @@ VehicleState TrustRegionMPCSolver::set_prediction(const double* X_, const double
         control.push_back(input);
         time += dt_interpolation;
     }
+
+    // Now update the actual member variable
     vehicle_state.predicted_trajectory = trajectory;
     vehicle_state.predicted_control = control;
-    
-    return vehicle_state_;
 }
 
 /** computes the heading on the spline x(s) and y(s) at parameter s*/

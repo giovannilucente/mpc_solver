@@ -47,7 +47,7 @@ void save_trajectories_to_csv(const VehicleState& vehicle_state, const std::stri
     file << "vehicle_id,x,y,psi,s,time\n";
 
     for (const auto& point : vehicle_state.predicted_trajectory) {
-        file << "," << point.x << "," << point.y << "," << point.psi << "," << point.s << "," << point.t_start << "\n";
+        file << "0," << point.x << "," << point.y << "," << point.psi << "," << point.s << "," << point.t_start << "\n";
     }
 
     file.close();
@@ -85,11 +85,11 @@ int main() {
     vehicle_state_smooth_curve.centerlane.initialize_spline(x_vals, y_vals, s_vals);
 
     // Run the mpc_solver
-    TrustRegionMPCSolver mpc_solver;
+    TrustRegionMPCSolver mpc_solver(vehicle_state_smooth_curve);
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    mpc_solver.run(vehicle_state_smooth_curve);
+    mpc_solver.run();
 
     auto end_time = std::chrono::high_resolution_clock::now();
 
@@ -102,7 +102,7 @@ int main() {
 
     // Save trajectories to a CSV file
     save_trajectories_to_csv(vehicle_state_smooth_curve, "../trajectory_smooth_curve.csv");
-    save_lanes_to_csv(vehicle_state_smooth_curve, "../lanes_intersection.csv");
+    save_lanes_to_csv(vehicle_state_smooth_curve, "../lanes_smooth_curve.csv");
 
     return 0;
 }

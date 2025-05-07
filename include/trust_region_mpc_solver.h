@@ -31,6 +31,7 @@ private:
 public:
     static const int nx = nX * (N + 1);                                 /** size of the state trajectory X */
     static const int nu = nU * (N + 1);                                 /** size of the input trajectory U */
+    int nG;                                                             /** size of the gradient vector */
     int nC;                                                             /** total number of inequality constraints */
     double dt = 0.3;                                                    /** integration time step */
     double d_up = 0.7;                                                  /** upper bound steering angle */
@@ -50,18 +51,17 @@ public:
     std::vector<double> U_old;                                          /** solution in the previous iteration*/
     Eigen::MatrixXd ul;                                                 /** controls lower bound*/
     Eigen::MatrixXd uu;                                                 /** controls upper bound*/
-    Eigen::MatrixXd time;                                               /** time vector */
     Eigen::MatrixXd lagrangian_multipliers;                             /** lagrangian multipliers*/
     
     enum STATES {x, y, v, psi, s, l};
     enum INPUTS {d, F};
 
-    VehicleState vehicle_state;
+    VehicleState& vehicle_state;
 
-    TrustRegionMPCSolver();  // Constructor
+    TrustRegionMPCSolver(VehicleState& vs);  // Constructor
     ~TrustRegionMPCSolver(); // Destructor
 
-    void run( VehicleState& vehicle_state );                                        /** Main method to execute the planner */
+    void run();                                                                     /** Main method to execute the planner */
     void setup();                                                                   /** Setup function */
     void initial_guess( double* X, double* U );                                     /** Set the initial guess */
     void trust_region_solver( double* U );                                          /** solver of the mpc based on trust region */
@@ -95,7 +95,7 @@ public:
     void constraints_diagnostic(const double* constraints, bool print);             /** shows violated constraints */
     void print_trajectories(const double* X, const double* U);                      /** prints trajectories */
     double compute_acceleration(const tk::spline & spline_v, double t);              /** computes the acceleration on the spline s(t) at time t*/
-    VehicleState set_prediction(const double* X_, const double* U_);                /** sets the prediction to the traffic structure */
+    void set_prediction(const double* X_, const double* U_);                        /** sets the prediction to the traffic structure */
     double compute_heading(const tk::spline & spline_x, 
                            const tk::spline & spline_y, double s);                  /** computes the heading on the spline x(s) and y(s) at parameter s */
     double compute_curvature(const tk::spline & spline_x, 
