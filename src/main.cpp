@@ -110,7 +110,7 @@ int main() {
     // Define traffic participant (starting along X, turning to Y)
     VehicleState vehicle_state_harsh_curve = 
         // x, y, v, psi, beta, a, v_target
-        {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0};  
+        {0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 5.0};  
 
     centerlane_length = 10;
     step = 5.0; // Distance between points
