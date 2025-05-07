@@ -4,11 +4,14 @@ import numpy as np
 from matplotlib.patches import Rectangle
 
 # Load CSV files
-df_intersection = pd.read_csv("trajectory_smooth_curve.csv")
-df_lanes = pd.read_csv("lanes_smooth_curve.csv")
+df_smooth = pd.read_csv("trajectory_smooth_curve.csv")
+df_lanes_smooth = pd.read_csv("lanes_smooth_curve.csv")
 
-# Function to plot trajectory for one scenario
-def plot_trajectory(df, scenario_name, ax):
+df_harsh = pd.read_csv("trajectory_harsh_curve.csv")
+df_lanes_harsh = pd.read_csv("lanes_harsh_curve.csv")
+
+# Function to plot trajectory
+def plot_trajectory(df, ax):
     vehicle_ids = df["vehicle_id"].unique()
 
     for vid in vehicle_ids:
@@ -33,24 +36,33 @@ def plot_trajectory(df, scenario_name, ax):
                              angle=np.degrees(psi_start), edgecolor='red', facecolor='none', lw=2)
             ax.add_patch(rect)
 
+# Function to plot lane centerline
 def plot_centerline(df_lanes, ax):
     centerline = df_lanes[df_lanes["lane_type"] == "center"]
     ax.plot(centerline["x"].to_numpy(), centerline["y"].to_numpy(), 'k--', label="Lane centerline", linewidth=2)
 
-# Create a single plot
-fig, ax = plt.subplots(figsize=(10, 7))
+# Create subplots for comparison
+fig, axes = plt.subplots(1, 2, figsize=(16, 7))
 
-# Plot everything
-plot_trajectory(df_intersection, "Smooth curve", ax)
-plot_centerline(df_lanes, ax)
+# Plot smooth curve scenario
+plot_trajectory(df_smooth, axes[0])
+plot_centerline(df_lanes_smooth, axes[0])
+axes[0].set_title("Smooth Curve Scenario")
+axes[0].set_xlabel("X Position")
+axes[0].set_ylabel("Y Position")
+axes[0].axis("equal")
+axes[0].legend()
+axes[0].grid()
 
-# Formatting the plot
-ax.set_xlabel("X Position")
-ax.set_ylabel("Y Position")
-ax.set_title("Planned Trajectories (Smooth curve)")
-ax.legend()
-ax.grid()
-ax.axis("equal")
+# Plot harsh curve scenario
+plot_trajectory(df_harsh, axes[1])
+plot_centerline(df_lanes_harsh, axes[1])
+axes[1].set_title("Harsh Curve Scenario (90° Turn)")
+axes[1].set_xlabel("X Position")
+axes[1].set_ylabel("Y Position")
+axes[1].axis("equal")
+axes[1].legend()
+axes[1].grid()
 
 plt.tight_layout()
 plt.show()
