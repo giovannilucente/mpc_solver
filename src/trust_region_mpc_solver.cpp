@@ -131,14 +131,12 @@ void TrustRegionMPCSolver::dynamic_step(double* d_state, const double* state, co
     /* Derivatives computation:*/
     d_state[x] = state[v] * cos(state[psi] + cg_ratio * control[d]);
     d_state[y] = state[v] * sin(state[psi] + cg_ratio * control[d]);
-    //d_state[v] = (-1/tau) * state[v] + (k) * control[F];
     d_state[v] = control[F];
     d_state[psi] = state[v] * tan(control[d]) * cos(cg_ratio * control[d])/ length;
     d_state[l] =  weight_target_speed * (state[v] - ref_state[v]) * (state[v] - ref_state[v])
             + weight_center_lane * ((ref_state[x] - state[x]) * (ref_state[x] - state[x]) + (ref_state[y] - state[y]) * (ref_state[y] - state[y]))
             + weight_heading * ((std::cos(ref_state[psi]) - std::cos(state[psi]))*(std::cos(ref_state[psi]) - std::cos(state[psi]))
             +        (std::sin(ref_state[psi]) - std::sin(state[psi]))*(std::sin(ref_state[psi]) - std::sin(state[psi])));
-            //+ weight_input * control[F] * control[F];
     d_state[s] = state[v];
 }
 
