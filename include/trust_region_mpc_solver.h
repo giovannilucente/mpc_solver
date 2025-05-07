@@ -15,7 +15,7 @@ private:
     const double tau = 2.0;
     const double k = 10.0;
     const double r_safe = 2.5;
-    const double r_lane = 3.5;
+    const double r_lane = 1.0;
     const double eps = 1e-6;
     const double length = 5.0;
     const double cg_ratio = 0.5;
@@ -43,7 +43,7 @@ public:
     double qf = 1e-2;                                                   /** penalty for the final error in the lagrangian */
     double gamma = 1.3;                                                 /** increasing factor of the penalty weight */
     double rho = 1e-3;                                                  /** penalty weight */ 
-    double weight_target_speed = 1e-1;                                  /** weight for the maximum speed in the lagrangian */
+    double weight_target_speed = 1e0;                                  /** weight for the maximum speed in the lagrangian */
     double weight_center_lane = 1e-1;                                   /** weight for the center lane in the lagrangian */
     double weight_heading = 1e2;                                        /** weight for the heading in the lagrangian */
     double weight_input = 0.0;                                          /** weight for the input in the lagrangian */

@@ -57,7 +57,7 @@ void TrustRegionMPCSolver::initial_guess(double* X_, double* U_)
 {
     for (int j = 0; j < N + 1; j++){
         U_[nU * j + d] = 0.0;
-        U_[nU * j + F] = 0.3;
+        U_[nU * j + F] = 0.0;
     }
     integrate(X_, U_);
 }
@@ -93,7 +93,7 @@ void TrustRegionMPCSolver::integrate(double* X_, const double* U_)
         sr_t0[x] = vehicle_state.centerlane.spline_x(s_ref);
         sr_t0[y] =vehicle_state.centerlane.spline_y(s_ref);
         sr_t0[psi] = vehicle_state.centerlane.compute_heading(s_ref);
-        sr_t0[v] = vehicle_state.v_target; 
+        sr_t0[v] = vehicle_state.v + j * (vehicle_state.v_target - vehicle_state.v) / (N + 1); 
 
         // Input control:
         u_t0[d] = U_[tu + d];
