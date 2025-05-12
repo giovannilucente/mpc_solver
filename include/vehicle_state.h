@@ -9,8 +9,8 @@ struct TrajectoryPoint {
     double y;       /** y coordinate */
     double psi;     /** heading */
     double v;       /** speed */
+    double a;       /** acceleration */
     double omega;   /** yaw rate */
-    double beta;    /** slip angle */
     double s;       /** progression */   
     double t_start; /** starting time of the point*/
     double t_end;   /** ending time of the point*/
@@ -18,7 +18,7 @@ struct TrajectoryPoint {
 typedef std::vector<TrajectoryPoint> Trajectory;
 
 struct Input {
-    double a;       /** acceleration */
+    double T;       /** throttle opening (if positive) or braking (if negative)*/
     double delta;   /** steering angle */     
 };
 typedef std::vector<Input> Control;

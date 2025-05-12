@@ -146,7 +146,7 @@ void TrustRegionMPCSolver::bicycle_dynamics_step(double* d_state, const double* 
     double throttle_val = 0.0;
     double brake_val = 0.0;
     double u = control[F];            // signed command
-    double slope = 5.0;                   // slope of the switch; bigger = sharper
+    double slope = 5.0;               // slope of the switch; bigger = sharper
 
     double sigmoid  = 0.5 * (1.0 + std::tanh(slope*u));   // ∈ (0,1)
 
@@ -513,14 +513,14 @@ void TrustRegionMPCSolver::set_prediction(const double* X_, const double* U_)
     for (int j = 0; j < N; j++) {
         TrajectoryPoint point;
         Input input;
-        input.a = X_[nX * (j + 1) + v] - X_[nX * j + v] / dt;
+        input.T = U_[nU * j + F];
         input.delta = U_[nU * j + d];
         point.x = X_[nX * j + x];
         point.y = X_[nX * j + y];
         point.psi = X_[nX * j + psi];
         point.v = X_[nX * j + v];
+        point.a = X_[nX * (j + 1) + v] - X_[nX * j + v] / dt;
         point.omega = X_[nX * (j + 1) + psi] - X_[nX * j + psi] / dt;
-        point.beta = (L / Lr) * input.delta;
         point.t_start = time;
         point.t_end = time + dt;
         trajectory.push_back(point);
