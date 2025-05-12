@@ -6,16 +6,18 @@ from matplotlib.patches import Rectangle
 # Load CSV files
 df_smooth = pd.read_csv("trajectory_smooth_curve.csv")
 df_lanes_smooth = pd.read_csv("lanes_smooth_curve.csv")
+df_driven_smooth = pd.read_csv("driven_trajectory_smooth_curve.csv")
 
 df_harsh = pd.read_csv("trajectory_harsh_curve.csv")
 df_lanes_harsh = pd.read_csv("lanes_harsh_curve.csv")
+df_driven_harsh = pd.read_csv("driven_trajectory_harsh_curve.csv")
 
-# Function to plot rectangles along trajectory
-def plot_vehicle_rectangles(df, ax):
+# Function to plot vehicle rectangles along trajectory
+def plot_vehicle_rectangles(df, ax, color='blue', label=None):
     vehicle_length = 4.5
     vehicle_width = 2.0
-
     vehicle_ids = df["vehicle_id"].unique()
+    first_patch = True  # Only label once per group
 
     for vid in vehicle_ids:
         vehicle_data = df[df["vehicle_id"] == vid]
@@ -30,8 +32,10 @@ def plot_vehicle_rectangles(df, ax):
             y_corner = y - (vehicle_length / 2) * np.sin(psi) - (vehicle_width / 2) * np.cos(psi)
 
             rect = Rectangle((x_corner, y_corner), vehicle_length, vehicle_width,
-                             angle=np.degrees(psi), edgecolor='blue', facecolor='none', lw=1)
+                             angle=np.degrees(psi), edgecolor=color, facecolor='none', lw=1,
+                             label=label if first_patch else None)
             ax.add_patch(rect)
+            first_patch = False
 
 # Function to plot lane centerline
 def plot_centerline(df_lanes, ax):
@@ -42,7 +46,8 @@ def plot_centerline(df_lanes, ax):
 fig, axes = plt.subplots(1, 2, figsize=(16, 7))
 
 # Smooth curve scenario
-plot_vehicle_rectangles(df_smooth, axes[0])
+plot_vehicle_rectangles(df_smooth, axes[0], color='blue', label="Planned Trajectory")
+plot_vehicle_rectangles(df_driven_smooth, axes[0], color='red', label="Driven Trajectory")
 plot_centerline(df_lanes_smooth, axes[0])
 axes[0].set_title("Smooth Curve Scenario")
 axes[0].set_xlabel("X Position")
@@ -52,7 +57,8 @@ axes[0].legend()
 axes[0].grid()
 
 # Harsh curve scenario
-plot_vehicle_rectangles(df_harsh, axes[1])
+plot_vehicle_rectangles(df_harsh, axes[1], color='blue', label="Planned Trajectory")
+plot_vehicle_rectangles(df_driven_harsh, axes[1], color='red', label="Driven Trajectory")
 plot_centerline(df_lanes_harsh, axes[1])
 axes[1].set_title("Harsh Curve Scenario (90° Turn)")
 axes[1].set_xlabel("X Position")
@@ -63,4 +69,3 @@ axes[1].grid()
 
 plt.tight_layout()
 plt.show()
-
