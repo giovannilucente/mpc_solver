@@ -12,32 +12,52 @@
 class TrustRegionMPCSolver {
 
 private:
-    const double tau = 2.0;
-    const double k = 10.0;
     const double r_safe = 2.5;
     const double r_lane = 1.0;
     const double eps = 1e-6;
-    const double length = 5.0;
-    const double cg_ratio = 0.5;
     const double pi = 3.1415;
     const double v_max = 10.0;
 
-    constexpr static const int N = 20;                                  /** number of integration nodes */
+    /* Car dynamics parameters */
+    double mass = 1500.0;  // kg
+    double L = 2.5;
+    double Lr = L / 2.0;
+    double Lf = L - Lr;
+    double drag_coeff = 0.3;
+    double frontal_area = 2.2;
+    double air_density = 1.225;
+    double rolling_resistance_coeff = 0.015;
+    double max_engine_force = 4000.0;
+    double max_brake_force = 6000.0;
+    double g = 9.81;
+    double max_steer = 0.4;
+    double Iz = 2250.0;
+
+    // Example Pacejka parameters (for illustrative purposes)
+    double B_f = 10;  // Stiffness factor for front tire
+    double C_f = 1.9;  // Shape factor for front tire
+    double D_f = 1500;  // Peak lateral force for front tire
+    double E_f = 0.97;  // Curvature factor for front tire
+
+    double B_r = 12;  // Stiffness factor for rear tire
+    double C_r = 2.0;  // Shape factor for rear tire
+    double D_r = 1600;  // Peak lateral force for rear tire
+    double E_r = 0.98;  // Curvature factor for rear tire
+
+    constexpr static const int N = 60;                                  /** number of integration nodes */
     constexpr static const int nX = 6;                                  /** <X, Y, V, PSI, S, L> */
     constexpr static const int nU = 2;                                  /** <d, F> */
-    constexpr static const int N_interpolation = 60;
-    constexpr static const double dt_interpolation = 0.1;
 
 public:
     static const int nx = nX * (N + 1);                                 /** size of the state trajectory X */
     static const int nu = nU * (N + 1);                                 /** size of the input trajectory U */
     int nG;                                                             /** size of the gradient vector */
     int nC;                                                             /** total number of inequality constraints */
-    double dt = 0.3;                                                    /** integration time step */
+    double dt = 0.1;                                                    /** integration time step */
     double d_up = 0.7;                                                  /** upper bound steering angle */
     double d_low = -0.7;                                                /** lower bound steering angle */
-    double F_up = 2.0;                                                  /** upper bound force */
-    double F_low = -3.0;                                                /** lower bound force */
+    double F_up = 1.0;                                                  /** upper bound force */
+    double F_low = -1.0;                                                /** lower bound force */
 
     // Parameters:
     double qf = 1e-2;                                                   /** penalty for the final error in the lagrangian */
@@ -66,8 +86,8 @@ public:
     void initial_guess( double* X, double* U );                                     /** Set the initial guess */
     void trust_region_solver( double* U );                                          /** solver of the mpc based on trust region */
     void integrate( double* X, const double* U );                                   /** Integration function */
-    void dynamic_step( double* d_state, const double* state, const double* ref_state, 
-                    const double* control );                                        /** Dynamic step function */
+    void bicycle_dynamics_step( double* d_state, const double* d_state_old, const double* state, 
+        const double* ref_state, const double* control );                           /** Bycicle dynamics step function */
     void hessian_SR1_update( Eigen::MatrixXd & H_, const Eigen::MatrixXd & s_,            
                      const Eigen::MatrixXd & y_, const double r_ );                /** SR1 Hessian matrix update*/
     void increasing_schedule();                                                    /** function to increase rho = rho * gamma */
@@ -94,12 +114,7 @@ public:
                                                                                         trust region ||s|| < Delta */
     void constraints_diagnostic(const double* constraints, bool print);             /** shows violated constraints */
     void print_trajectories(const double* X, const double* U);                      /** prints trajectories */
-    double compute_acceleration(const tk::spline & spline_v, double t);              /** computes the acceleration on the spline s(t) at time t*/
-    void set_prediction(const double* X_, const double* U_);                        /** sets the prediction to the traffic structure */
-    double compute_heading(const tk::spline & spline_x, 
-                           const tk::spline & spline_y, double s);                  /** computes the heading on the spline x(s) and y(s) at parameter s */
-    double compute_curvature(const tk::spline & spline_x, 
-                             const tk::spline & spline_y, double s);                 /** computes the curvature on the spline x(t) and y(t) at time t*/
+    void set_prediction(const double* X_, const double* U_);                        /** sets the prediction to the traffic structure */                
     double gradient_norm(const double* gradient);                                               /** computes the norm of the gradient */
     void correctionU(double* U_);                                                    /** corrects U if outside the boundaries */
 };

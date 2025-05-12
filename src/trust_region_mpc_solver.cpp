@@ -73,6 +73,7 @@ void TrustRegionMPCSolver::integrate(double* X_, const double* U_)
     double sr_t0[nX];
     double u_t0[nU];
     double ds_t0[nX];
+    double ds_t1[nX];
 
     t = 0.0;
 
@@ -83,6 +84,13 @@ void TrustRegionMPCSolver::integrate(double* X_, const double* U_)
     s_t0[psi] = vehicle_state.psi;
     s_t0[s] = 0.0;
     s_t0[l] = 0.0;
+
+    ds_t0[x] = vehicle_state.v * std::cos(vehicle_state.psi + vehicle_state.beta);
+    ds_t0[y] = vehicle_state.v * std::sin(vehicle_state.psi + vehicle_state.beta);
+    ds_t0[v] = vehicle_state.a;
+    ds_t0[psi] = vehicle_state.omega;
+    ds_t0[s] = 0.0;
+    ds_t0[l] = 0.0;
 
     for (int j = 0; j < N + 1; j++){
         tu = nU * j;
@@ -100,15 +108,22 @@ void TrustRegionMPCSolver::integrate(double* X_, const double* U_)
         u_t0[F] = U_[tu + F];
         
         // Dynamic step: 
-        dynamic_step(ds_t0, s_t0, sr_t0, u_t0);
+        bicycle_dynamics_step(ds_t1, ds_t0, s_t0, sr_t0, u_t0);
 
         // Integration to compute the new state: 
-        s_t0[x] += dt * ds_t0[x];
-        s_t0[y] += dt * ds_t0[y];
-        s_t0[v] += dt * ds_t0[v];
-        s_t0[psi] += dt * ds_t0[psi];
-        s_t0[s] += dt * ds_t0[s];
-        s_t0[l] += dt * ds_t0[l];
+        s_t0[x] += dt * ds_t1[x];
+        s_t0[y] += dt * ds_t1[y];
+        s_t0[v] += dt * ds_t1[v];
+        s_t0[psi] += dt * ds_t1[psi];
+        s_t0[s] += dt * ds_t1[s];
+        s_t0[l] += dt * ds_t1[l];
+
+        ds_t0[x] = ds_t1[x];
+        ds_t0[y] = ds_t1[y];
+        ds_t0[v] = ds_t1[v];
+        ds_t0[psi] = ds_t1[psi];
+        ds_t0[s] = ds_t1[s];
+        ds_t0[l] = ds_t1[l];
 
         if (s_t0[v] < 0.0){s_t0[v] = 0.0;}
 
@@ -126,13 +141,55 @@ void TrustRegionMPCSolver::integrate(double* X_, const double* U_)
 }
 
 /** Dyanamic step */
-void TrustRegionMPCSolver::dynamic_step(double* d_state, const double* state, const double* ref_state, const double* control)
+void TrustRegionMPCSolver::bicycle_dynamics_step(double* d_state, const double* d_state_old, const double* state, const double* ref_state, const double* control)
 {
+    double throttle_val = 0.0;
+    double brake_val = 0.0;
+    double u = control[F];            // signed command
+    double slope = 5.0;                   // slope of the switch; bigger = sharper
+
+    double sigmoid  = 0.5 * (1.0 + std::tanh(slope*u));   // ∈ (0,1)
+
+    throttle_val =  sigmoid *  u;          // positive half
+    brake_val    = (1.0 - sigmoid) * -u;   // negative half, always ≥ 0
+    
+    // -------- Vehicle longitudinal dynamics --------
+    double engine_force = throttle_val * max_engine_force;
+    double brake_force = brake_val * max_brake_force;
+    double drag_force = 0.5 * air_density * drag_coeff * frontal_area * state[v] * state[v];
+    //double rolling_force = rolling_resistance_coeff * mass * g;
+    double rolling_force = 0.0;
+
+    double total_force = engine_force - brake_force - drag_force - rolling_force;
+    
+    // -------- Vehicle lateral/slip dynamics --------
+    double beta = control[d] * Lr / L;
+    double yaw_rate = d_state_old[psi];
+
+    if (state[v] > 1.0)
+    {
+        double alpha_f = control[d] - std::atan2((yaw_rate * Lf + state[v] * std::sin(beta)), (state[v] * std::cos(beta) + 1e-6));
+        double alpha_r = - std::atan2((yaw_rate * Lr - state[v] * std::sin(beta)), (state[v] * std::cos(beta) + 1e-6));
+
+        double Fyf = - D_f * std::sin(C_f * std::atan(B_f * alpha_f - E_f * (B_f * alpha_f - std::atan(B_f * alpha_f))));
+        double Fyr = - D_r * std::sin(C_r * std::atan(B_r * alpha_r - E_r * (B_r * alpha_r - std::atan(B_r * alpha_r))));
+
+        double yaw_acc = (Lf * Fyf - Lr * Fyr) / Iz;
+        yaw_rate = yaw_rate + yaw_acc * dt;
+
+        double lat_acceleration = (Fyf + Fyr) / mass;
+        double v_lat = state[v] * std::sin(beta) + lat_acceleration * dt;
+
+        beta = std::atan2(v_lat, state[v] + 1e-6);
+    }else{
+        yaw_rate = state[v] * std::tan(control[d]) * cos((Lr / L) * control[d])/ L;
+    }
+
     /* Derivatives computation:*/
-    d_state[x] = state[v] * cos(state[psi] + cg_ratio * control[d]);
-    d_state[y] = state[v] * sin(state[psi] + cg_ratio * control[d]);
-    d_state[v] = control[F];
-    d_state[psi] = state[v] * tan(control[d]) * cos(cg_ratio * control[d])/ length;
+    d_state[x] = state[v] * cos(state[psi] + beta);
+    d_state[y] = state[v] * sin(state[psi] + beta);
+    d_state[v] = total_force / mass;
+    d_state[psi] = yaw_rate;
     d_state[l] =  weight_target_speed * (state[v] - ref_state[v]) * (state[v] - ref_state[v])
             + weight_center_lane * ((ref_state[x] - state[x]) * (ref_state[x] - state[x]) + (ref_state[y] - state[y]) * (ref_state[y] - state[y]))
             + weight_heading * ((std::cos(ref_state[psi]) - std::cos(state[psi]))*(std::cos(ref_state[psi]) - std::cos(state[psi]))
@@ -446,93 +503,34 @@ void TrustRegionMPCSolver::print_trajectories(const double* X, const double* U)
     std::cerr << "\n";
 }
 
-/** computes the acceleration on the spline s(t) at time t*/
-double TrustRegionMPCSolver::compute_acceleration(const tk::spline & spline_v, double t)
-{
-    return spline_v.deriv(1, t);
-}
-
 /** sets the prediction to the traffic structure*/
-void TrustRegionMPCSolver::set_prediction(const double* X_, const double* U_) {
+void TrustRegionMPCSolver::set_prediction(const double* X_, const double* U_) 
+{
     Trajectory trajectory;
     Control control;
-    tk::spline spline_x;
-    tk::spline spline_y;
-    tk::spline spline_v;
-    tk::spline spline_d;
-    std::vector<double> x_;
-    std::vector<double> y_;
-    std::vector<double> v_;
-    std::vector<double> d_;
-    std::vector<double> t_;
     double time = 0.0;
 
-    x_.push_back(vehicle_state.x);
-    y_.push_back(vehicle_state.y);
-    v_.push_back(vehicle_state.v);
-    d_.push_back(0.5 * vehicle_state.beta);
-    t_.push_back(time);
-
-    for (int j = 0; j < N + 1; j++) {
-        time += dt;
-        x_.push_back(X_[nX * j + x]);
-        y_.push_back(X_[nX * j + y]);
-        v_.push_back(X_[nX * j + v]);
-        d_.push_back(U_[nU * j + d]);
-        t_.push_back(time);
-    }
-
-    spline_x = tk::spline(t_, x_);
-    spline_y = tk::spline(t_, y_);
-    spline_v = tk::spline(t_, v_);
-    spline_d = tk::spline(t_, d_);
-    time = 0.0;
-
-    for (int j = 0; j < N_interpolation; j++) {
+    for (int j = 0; j < N; j++) {
         TrajectoryPoint point;
         Input input;
-        input.a = compute_acceleration(spline_v, time);
-        input.delta = spline_d(time);
-        point.x = spline_x(time);
-        point.y = spline_y(time);
-        point.psi = compute_heading(spline_x, spline_y, time);
-        point.v = spline_v(time);
-        point.k = compute_curvature(spline_x, spline_y, time);
-        point.omega = point.k * point.v;
-        point.beta = 0.5 * input.delta;
+        input.a = X_[nX * (j + 1) + v] - X_[nX * j + v] / dt;
+        input.delta = U_[nU * j + d];
+        point.x = X_[nX * j + x];
+        point.y = X_[nX * j + y];
+        point.psi = X_[nX * j + psi];
+        point.v = X_[nX * j + v];
+        point.omega = X_[nX * (j + 1) + psi] - X_[nX * j + psi] / dt;
+        point.beta = (L / Lr) * input.delta;
         point.t_start = time;
-        point.t_end = time + dt_interpolation;
+        point.t_end = time + dt;
         trajectory.push_back(point);
         control.push_back(input);
-        time += dt_interpolation;
+        time += dt;
     }
 
     // Now update the actual member variable
     vehicle_state.predicted_trajectory = trajectory;
     vehicle_state.predicted_control = control;
-}
-
-/** computes the heading on the spline x(s) and y(s) at parameter s*/
-double TrustRegionMPCSolver::compute_heading( const tk::spline & spline_x, const tk::spline & spline_y, double s)
-{
-    double psi;
-    double dx = spline_x.deriv(1, s);
-    double dy = spline_y.deriv(1, s);
-    psi = atan2(dy, dx);
-    if(psi < 0.0) {psi += 2*M_PI;}
-    return psi;
-}
-
-/** computes the curvature on the spline x(t) and y(t) at time t*/
-double TrustRegionMPCSolver::compute_curvature(const tk::spline & spline_x, const tk::spline & spline_y, double s)
-{
-    double k;
-    double dx = spline_x.deriv(1, s);
-    double dy = spline_y.deriv(1, s);
-    double ddx = spline_x.deriv(2, s);
-    double ddy = spline_y.deriv(2, s);
-    k = (ddy * dx - ddx * dy) / sqrt((dx * dx + dy * dy) * (dx * dx + dy * dy) * (dx * dx + dy * dy));
-    return k;
 }
 
 /** computes the norm of the gradient */
@@ -596,7 +594,7 @@ void TrustRegionMPCSolver::trust_region_solver(double* U_)
     H_ = Eigen::MatrixXd::Identity(nu, nu);
     
     compute_gradient(gradient, dU_);
-
+    
     // Check for convergence:
     if (gradient_norm(gradient) < threshold_gradient_norm){
         convergence = true;
@@ -665,7 +663,7 @@ void TrustRegionMPCSolver::trust_region_solver(double* U_)
             dU_[j * nU + F] = dU[j * nU + F];
         }
         
-         // Check for convergence:
+        // Check for convergence:
         if (gradient_norm(gradient) < threshold_gradient_norm){
             convergence = true;
         }

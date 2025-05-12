@@ -11,7 +11,6 @@ struct TrajectoryPoint {
     double v;       /** speed */
     double omega;   /** yaw rate */
     double beta;    /** slip angle */
-    double k;       /** curvature */
     double s;       /** progression */   
     double t_start; /** starting time of the point*/
     double t_end;   /** ending time of the point*/
@@ -45,7 +44,8 @@ struct VehicleState {
     double x;                               /** X position */
     double y;                               /**  Y position */
     double psi;                             /** heading of the vehicle */
-    double beta;                            /** slip angle*/
+    double beta;                            /** slip angle */
+    double omega;                           /** yaw rate */
     double v;                               /** speed of the vehicle */
     double a;                               /** acceleration */
     double L;                               /** length of the i-th vehicle */
@@ -59,8 +59,8 @@ struct VehicleState {
     Trajectory predicted_trajectory;        /** predicted trajectory*/
     Control predicted_control;              /** predicted control*/
 
-    VehicleState(double x_, double y_, double v_, double psi_, double beta_, double a_, double v_target_)
-        : x(x_), y(y_), v(v_), psi(psi_), beta(beta_), a(a_), v_target(v_target_) {}
+    VehicleState(double x_, double y_, double v_, double psi_, double beta_, double omega_, double a_, double v_target_)
+        : x(x_), y(y_), v(v_), psi(psi_), beta(beta_), omega(omega_), a(a_), v_target(v_target_) {}
 };
 
 using TrafficParticipants = std::vector<VehicleState>;  // Alias for a list of vehicles

@@ -62,7 +62,7 @@ int main() {
     // Define traffic participants (3 vehicles approaching an intersection)
     VehicleState vehicle_state_smooth_curve = 
         // x, y, v, psi, beta, a, v_target
-        {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0};  
+        {0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 10.0};  
     
     int centerlane_length = 20;
     double step = 5.0; // Distance between points
@@ -110,7 +110,7 @@ int main() {
     // Define traffic participant (starting along X, turning to Y)
     VehicleState vehicle_state_harsh_curve = 
         // x, y, v, psi, beta, a, v_target
-        {0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 5.0};  
+        {0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 5.0};  
 
     centerlane_length = 10;
     step = 5.0; // Distance between points
