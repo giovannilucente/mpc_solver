@@ -137,7 +137,6 @@ void TrustRegionMPCSolver::integrate(double* X_, const double* U_)
 
         t+= dt;
     }
-    
 }
 
 /** Dyanamic step */
@@ -357,51 +356,47 @@ double TrustRegionMPCSolver::compute_lagrangian(const double* X_, const double* 
     return lagrangian;
 }
 
-/** computation of the gradient of lagrangian_i with respect to U_i for each i with parallelization on cpu*/
 void TrustRegionMPCSolver::compute_gradient(double* gradient, const double* U_)
 {
     const int num_threads = std::thread::hardware_concurrency();
-    std::mutex mutex;
     std::vector<std::thread> threads(num_threads);
 
-    // Definition of the work for each thread:
     auto computeGradient = [&](int start, int end) {
-        double dU[nu];
-        double dX[nx];
-        double X_[nx];
+        double dU[nU * (N + 1)];
+        double dX[nX * (N + 1)];
+        double X_[nX * (N + 1)];
         double lagrangian;
         double d_lagrangian;
         double cost;
         double constraints[nC];
-        int index;
-        for (int i = 0; i < nu; i++){
-            dU[i] = U_[i];
-        }
+
+        // Precompute nominal trajectory and lagrangian once per thread
+        std::memcpy(dU, U_, (nU * (N + 1)) * sizeof(double));
         integrate(X_, U_);
         lagrangian = compute_lagrangian(X_, U_);
-        for (int i = start; i < end; i++) {
-            dU[i] = U_[i] + eps;
+
+        for (int i = start; i < end; ++i) {
+            std::memcpy(dU, U_, (nU * (N + 1)) * sizeof(double));  // Reset dU each iteration
+            dU[i] += eps;
+
             integrate(dX, dU);
             compute_constraints(constraints, dX, dU);
-            cost = compute_cost_function( dX, dU);
-            d_lagrangian = compute_lagrangian( dX, dU);
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                gradient[i] = (d_lagrangian - lagrangian) / eps;
-            }
-            dU[i] = U_[i];
+            cost = compute_cost_function(dX, dU);
+            d_lagrangian = compute_lagrangian(dX, dU);
+
+            gradient[i] = (d_lagrangian - lagrangian) / eps;
         }
     };
 
-    // Parallelize:
-    int work_per_thread = nu / num_threads;
-    int start_index = 0;
-    int end_index = 0;
+    // Divide workload
+    int work_per_thread = ((nU * (N + 1)) + num_threads - 1) / num_threads;  // Ceiling division
+
     for (int i = 0; i < num_threads; ++i) {
-        start_index = i * work_per_thread;
-        end_index = (i == num_threads - 1) ? nu : start_index + work_per_thread;
-        threads[i] = std::thread(computeGradient, start_index, end_index);
+        int start = i * work_per_thread;
+        int end = std::min(start + work_per_thread, (nU * (N + 1)));
+        threads[i] = std::thread(computeGradient, start, end);
     }
+
     for (auto& thread : threads) {
         thread.join();
     }
