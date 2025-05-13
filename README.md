@@ -54,5 +54,6 @@ python3 plot_trajectories.py
 ```
 If everything works, you should see the plot of the computed trajectories in two different scenarios:
 ![Trajectories](media/Plot.png)
+This plot represents two scenarios, a smooth curve and a harsh curve. The trajectories are computed and then executed, adding some noise and observing the resulting trajectories in a noisy environment.
 Some information, including the trajectory points, are printed in the terminal.
 To create a new scenario to test, please refer to the main.cpp file, where the two scenarios above mentioned are created.
