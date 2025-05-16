@@ -1,6 +1,5 @@
 # Trust Region Model Predictive Control 
 This repository contains a **Model Predictive Control (MPC)** solver based on a **Trust Region** optimizer.
-This repository is still a work in progress.
 
 ## Installation and setup:
 To install and run this project locally, follow these steps:
